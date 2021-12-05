@@ -43,6 +43,7 @@ class State(BaseEnum):
     """Enum for the Business state."""
     ACTIVE = auto()
     HISTORICAL = auto()
+    LIQUIDATION = auto()
 
 
 class Business(db.Model):
