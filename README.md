@@ -88,6 +88,49 @@ sql_enum=# SELECT unnest(enum_range(NULL::state));
  HISTORICAL
 (2 rows)
 ```
+### Updating the existing model
+Alter the State Enum, by adding in a Liquidation value.
+```python
+class State(BaseEnum):
+    """Enum for the Business state."""
+    ACTIVE = auto()
+    HISTORICAL = auto()
+    LIQUIDATION = auto()
+```
+
+1. Create a migration.
+```bash
+flask db migrate -m "add_liquidation_state"
+```
+the output is surprising as 
+```
+INFO  [alembic.env] No changes in schema detected.
+```
+So haven't quite figurued out how to autogenerate those changes to the Enum, as they are linked to an ORM class.
+We'll create an empty revision to hold the change ourselves for now.
+
+Solution in the branch **liquidation**
+
+```bash
+flask db revision -m "add_liquidation_state"
+```
+Change the file to have the following setup.
+Luckily we can ALTER Types in Postgres via Alembic, but we also have to downgrade the column through a set of steps.
+
+We may have to add multiple columns and drop them to provide more up time, but this is for another demo and maybe assing in my favourite, launchdarkly feaure flags.
+
+For now, this works too, with minor availabilty impact.
+```python
+def upgrade():
+    op.execute("ALTER TYPE state ADD VALUE 'LIQUIDATION'")
 
 
-
+def downgrade():
+    op.execute("ALTER TYPE state RENAME TO state_previous")
+    op.execute("CREATE TYPE state AS ENUM('ACTIVE', 'HISTORICAL')")
+    op.execute((
+        "ALTER TABLE businesses ALTER COLUMN state TYPE state USING "
+        "state::text::state"
+    ))
+    op.execute("DROP TYPE state_previous")
+```
